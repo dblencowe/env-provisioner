@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "web-test.fullname" . }}-http-deployment
+  labels:
+    {{- include "web-test.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "web-test.fullname" . }}-http
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: {{ include "web-test.fullname" . }}-http
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values: 
+                  - worker3.strawberryelk.com
+      volumes:
+        - name: {{ include "web-test.fullname" . }}-pv-storage
+          persistentVolumeClaim:
+            claimName: {{ include "web-test.fullname" . }}-storage-claim
+        - name: nginx-config-volume
+          configMap:
+            name: nginx-config
+      containers:
+        - image: bitnami/php-fpm:8.0
+          name: app
+          volumeMounts:
+            - mountPath: "/var/ww/html"
+              name: {{ include "web-test.fullname" . }}-pv-storage
+        - name: {{ include "web-test.fullname" . }}-http
+          image: nginx:latest
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - mountPath: "/usr/share/nginx/html"
+              name: {{ include "web-test.fullname" . }}-pv-storage
+            - name: nginx-config-volume
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf

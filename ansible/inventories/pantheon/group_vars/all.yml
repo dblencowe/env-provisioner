@@ -1,0 +1,18 @@
+tld: strawberryelk.com
+authorized_users:
+  - dblencowe
+load_iptables_rules: true
+storage:
+  qnap:
+    namespace: qnap-storage
+    image: dblencowe/qnap-storage-provisioner:latest
+    imagePullPolicy: "IfNotPresent"
+    auth:
+      url: "http://nemo.{{ tld }}"
+      nfsHost: nemo
+      share: ClusterData
+      username: 'cluster'
+vcs_namespace: apps
+apps_namespace: apps
+metallb_cidr: 192.168.50.128/25
+mysql_static_lb_ip: 192.168.50.200

@@ -1,0 +1,13 @@
+---
+storage:
+  qnap:
+    namespace: qnap-storage
+    image: nineliveslater/qnap-storage-provisioner:latest
+    imagePullPolicy: "IfNotPresent"
+    auth:
+      url: ''
+      nfsHost: ''
+      share: DockerData1
+      username: ''
+apps_namespace: apps
+mysql_static_lb_ip: ""

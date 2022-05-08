@@ -1,0 +1,37 @@
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: "{{ application_prefix }}-pv-gogs"
+  namespace: "{{ vcs_namespace }}"
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-storage
+  local:
+    path: /mnt/disks/sda1/gogs
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+            - worker3.strawberryelk.com
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "{{ application_prefix }}-pvc-gogs"
+  namespace: "{{ vcs_namespace }}"
+spec:
+  volumeName: "{{ application_prefix }}-pv-gogs"
+  storageClassName: "local-storage"
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: "50Gi"

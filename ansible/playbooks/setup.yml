@@ -1,0 +1,69 @@
+
+---
+- name: Intialise nodes
+  hosts: all
+  tasks:
+    # - name: Print all available facts
+    #   ansible.builtin.debug:
+    #     var: ansible_facts
+    - name: Setup Python & acl
+      become: yes
+      apt:
+        name: [python3-apt, acl, python3-pip, python3-pymysql, nfs-common]
+        state: present
+        update_cache: true
+
+    - name: Set the hostname
+      become: yes
+      ansible.builtin.hostname:
+        name: "{{ inventory_hostname }}.{{ vars.tld }}"
+
+- name: Install k8s on cluster nodes
+  hosts: master, workers
+  become: yes
+  roles:
+    - install-k8s
+
+- name: Setup authorized users
+  hosts: all
+  become: yes
+  roles:
+    - authorized_users
+
+- name: Configure k8s master
+  hosts: master
+  become: yes
+  roles:
+    - k8s-master
+
+- name: Configure k8s workers
+  hosts: workers
+  become: yes
+  roles:
+    - k8s-workers
+
+- name: Setup Cluster Storage
+  hosts: master
+  become: yes
+  vars:
+    storage_qnap_password: ""
+  roles:
+    - storage
+
+- name: Setup metallb
+  hosts: master
+  become: yes
+  roles:
+    - k8s-metallb
+
+- name: Configure network VCS
+  hosts: master
+  become: yes
+  roles:
+    - k8s-vcs
+    
+- name: Cleanup
+  hosts: all
+  tasks:
+    - name: Remove cluster join command
+      local_action: file path=directory state=absent

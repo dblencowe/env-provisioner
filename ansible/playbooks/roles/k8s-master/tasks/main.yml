@@ -1,0 +1,99 @@
+---
+- name: Create Kube account for interacting with cluster
+  user:
+    name: kube
+    state: present
+    shell: /bin/bash
+    system: no
+    createhome: yes
+
+- name: allow authorised users to use sudo without needing a password
+  lineinfile:
+    dest: /etc/sudoers
+    line: "kube ALL=(ALL) NOPASSWD: /usr/bin/kubeadm"
+    validate: 'visudo -cf %s'
+
+- name: Add an Apt signing key for Helm
+  ansible.builtin.apt_key:
+    url: https://baltocdn.com/helm/signing.asc 
+    state: present
+
+- name: Add specified repository into sources list
+  ansible.builtin.apt_repository:
+    repo: deb https://baltocdn.com/helm/stable/debian/ all main
+    state: present
+    filename: helm.list
+
+- name: Install Helm
+  become: true
+  apt:
+    update_cache: true
+    name: helm
+    state: present
+  register: helm_installed
+
+- name: Update Helm plugin
+  kubernetes.core.helm_plugin:
+    plugin_path: https://github.com/databus23/helm-diff
+    state: present
+
+
+- name: initialize the cluster
+  shell: kubeadm init --pod-network-cidr=10.244.0.0/16 && touch /tmp/cluster_initialized.txt
+  args:
+    creates: /tmp/cluster_initialized.txt
+
+- name: create .kube directory
+  become: yes
+  become_user: kube
+  file:
+    path: $HOME/.kube
+    state: directory
+    mode: 0755
+
+- name: copies admin.conf to user's kube config
+  become: yes
+  copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /home/kube/.kube/config
+    remote_src: yes
+    mode: 0600
+    owner: kube
+
+- name: install Pod network
+  become: yes
+  become_user: kube
+  become_method: sudo
+  shell: kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml 
+  args:
+    chdir: $HOME
+
+- name: Install k8s python packages for managing resources from Ansible
+  pip:
+    name: 
+      - openshift
+      - pyyaml
+      - kubernetes
+      - kubernetes-validate
+
+- name: Install local storage provisioner
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.k8s:
+    state: present
+    template: apps-namespace.yml.j2
+    validate:
+      fail_on_error: yes
+
+- name: Get the token for joining the worker nodes
+  become: yes
+  shell: kubeadm token create --print-join-command
+  register: kubernetes_join_command
+
+- debug:
+    msg: "{{ kubernetes_join_command.stdout }}"
+
+- name: Copy join command to local file.
+  become: false
+  local_action: copy content="{{ kubernetes_join_command.stdout_lines[0] }}" dest="/tmp/kubernetes_join_command" mode=0777

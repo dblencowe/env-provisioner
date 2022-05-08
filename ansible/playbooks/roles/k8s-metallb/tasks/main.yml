@@ -1,0 +1,40 @@
+---
+- name: Create metallb namespace
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.k8s:
+    state: present
+    template: metallb-namespace.yml.j2
+    validate:
+      fail_on_error: yes
+  register: install_metallb
+
+- name: Install metallb
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.k8s:
+    state: present
+    template: metallb.yml.j2
+    validate:
+      fail_on_error: yes
+  when: install_metallb.changed
+
+- name: Generate metallb secret
+  become: yes
+  become_user: kube
+  become_method: sudo
+  command: kubectl create secret generic -n metallb-system memberlist --from-literal=secretkey="$(openssl rand -base64 128)"
+  when: install_metallb.changed
+
+- name: Configure Network
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.k8s:
+    state: present
+    template: metallb-config.yml.j2
+    validate:
+      fail_on_error: yes
+  when: install_metallb.changed

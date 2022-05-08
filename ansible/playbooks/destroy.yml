@@ -1,0 +1,26 @@
+
+---
+- name: Prepare all nodes for redeploy
+  hosts: all
+  tasks:
+    - name: Kubeadm reset
+      become: true
+      command: kubeadm reset -f
+    - name: Remove cluster setup blockers
+      become: true
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items: [/tmp/cluster_initialized.txt, /tmp/cluster_joined.txt]
+    # - name: Unhold packages
+    #   become: true
+    #   dpkg_selections:
+    #     name: "{{ item }}"
+    #     selection: deinstall
+    #   with_items: [kubelet, kubeadm, kubectl]
+    # - name: Uninstall Kubernetes for redeploy
+    #   become: true
+    #   apt:
+    #     name: [kubelet, kubeadm, kubectl]
+    #     state: absent
+

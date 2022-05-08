@@ -1,0 +1,37 @@
+---
+- name: Copy join command from Ansiblehost to the worker nodes.
+  become: yes
+  copy:
+    src: /tmp/kubernetes_join_command
+    dest: /tmp/kubernetes_join_command
+    mode: 0777
+
+- name: Join the Worker nodes to the cluster.
+  become: yes
+  shell: sh /tmp/kubernetes_join_command && touch /tmp/cluster_joined.txt
+  register: joined_or_not
+  args:
+    creates: /tmp/cluster_joined.txt
+
+- name: Split additional drive variable
+  # debug: "{{ (extra_drives | default()).split(',') }}"
+  debug:
+    msg: "{{ extra_drives.split(',') }}"
+  # "{{ (a >= b) | ternary ('test1', 'test2') }}"
+  when: extra_drives is defined
+  register: additional_drives
+  
+- name: Create disks folder
+  file:
+    path: /mnt/disks
+    state: directory
+
+- name: Mount and bind volume
+  mount:
+    path: /mnt/disks/{{ item }}
+    src: /dev/{{ item }}
+    opts: defaults
+    fstype: ext4
+    state: mounted
+  with_items: "{{ additional_drives.msg }}"
+  when: additional_drives.msg is defined

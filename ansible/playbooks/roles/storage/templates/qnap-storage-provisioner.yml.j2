@@ -1,0 +1,113 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ storage.qnap.namespace }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: qnap-storage-provisioner
+  namespace: {{ storage.qnap.namespace }}
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: qnap-storage-provisioner
+rules:
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "update", "patch"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: qnap-storage-provisioner
+subjects:
+  - kind: ServiceAccount
+    name: qnap-storage-provisioner
+    namespace: {{ storage.qnap.namespace }}
+roleRef:
+  kind: ClusterRole
+  name: qnap-storage-provisioner
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: leader-locking-qnap-storage-provisioner
+  namespace: {{ storage.qnap.namespace }}
+rules:
+  - apiGroups: [""]
+    resources: ["endpoints"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["endpoints"]
+    verbs: ["list", "watch", "create"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: leader-locking-qnap-storage-provisioner
+  namespace: {{ storage.qnap.namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: qnap-storage-provisioner
+roleRef:
+  kind: Role
+  name: leader-locking-qnap-storage-provisioner
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: Pod
+apiVersion: v1
+metadata:
+  name: qnap-storage-provisioner
+  namespace: {{ storage.qnap.namespace }}
+spec:
+  containers:
+    - name: qnap-storage-provisioner
+      image: {{ storage.qnap.image }}
+      imagePullPolicy: {{ storage.qnap.imagePullPolicy }}
+      env:
+        - name: QNAP_URL
+          value: {{ storage.qnap.auth.url }}
+        - name: QNAP_NFSHOST
+          value: {{ storage.qnap.auth.nfsHost }}
+        - name: QNAP_SHARE
+          value: {{ storage.qnap.auth.share }}
+        - name: QNAP_USER
+          value: {{ storage.qnap.auth.username }}
+        - name: QNAP_PWD
+          valueFrom:
+            secretKeyRef:
+              name: qnap-storage-provisioner
+              key: password
+  serviceAccountName: qnap-storage-provisioner
+---
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: qnap-data
+provisioner: qnap/filestation
+parameters:
+  shareName: {{ storage.qnap.auth.share }}
+reclaimPolicy: Delete
+allowVolumeExpansion: true
+volumeBindingMode: Immediate
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: qnap-storage-provisioner
+  namespace: {{ storage.qnap.namespace }}
+type: Opaque
+data:
+  password: {{ storage_qnap_password_enc }}
