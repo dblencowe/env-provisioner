@@ -89,8 +89,8 @@
             PASSWD: "{{ mysql_password.msg }}"
             SCHEMA: gitea
           server:
-            DOMAIN: "git.master.{{ tld }}"
-            SSH_DOMAIN: "git.master.{{ tld }}"
+            DOMAIN: "git.{{ tld }}"
+            SSH_DOMAIN: "git.{{ tld }}"
           cache:
             HOST: memcached.apps.svc.cluster.local:11211
         admin:
