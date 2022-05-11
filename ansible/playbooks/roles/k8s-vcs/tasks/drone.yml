@@ -37,7 +37,6 @@
         DRONE_SERVER_HOST: drone.master.{{ tld }}
         DRONE_SERVER_PROTO: http
         DRONE_RPC_SECRET: "{{ drone_rpc_secret }}"
-        DRONE_GOGS_SERVER: "{{ gogs_external_url }}"
         DRONE_GIT_ALWAYS_AUTH: true
       service:
         type: LoadBalancer
