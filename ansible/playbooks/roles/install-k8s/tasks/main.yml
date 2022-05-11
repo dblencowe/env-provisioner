@@ -1,4 +1,11 @@
 ---
+- name: Create provisioning folder
+  become: true
+  file:
+    path: /var/lib/provisioning
+    state: directory
+    mode: 0755
+
 - name: Add cgroup directives to boot command line config
   lineinfile:
     path: /boot/firmware/cmdline.txt
@@ -84,12 +91,20 @@
     state: present
     filename: kubernetes.list
 
+- name: Unhold packages
+  become: true
+  dpkg_selections:
+    name: "{{ item }}"
+    selection: install
+  with_items: [kubelet, kubeadm, kubectl]
+
 - name: Install Kubernetes
   become: true
   apt:
     update_cache: true
-    name: [kubelet=1.20.1-00, kubeadm=1.20.1-00, kubectl=1.20.1-00]
+    name: [kubelet=1.21.12-00, kubeadm=1.21.12-00, kubectl=1.21.12-00]
     state: present
+  register: k8s_install
 
 - name: Hold packages
   become: true

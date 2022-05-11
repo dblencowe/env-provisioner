@@ -11,7 +11,7 @@
       file:
         path: "{{ item }}"
         state: absent
-      with_items: [/tmp/cluster_initialized.txt, /tmp/cluster_joined.txt]
+      with_items: [/var/lib/provisioning/cluster_initialized.txt, /var/lib/provisioning/cluster_joined.txt]
     # - name: Unhold packages
     #   become: true
     #   dpkg_selections:

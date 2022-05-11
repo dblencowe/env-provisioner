@@ -1,0 +1,75 @@
+- name: Add helm repo
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.helm_repository:
+    name: keyporttech
+    repo_url: https://keyporttech.github.io/helm-charts/
+
+- name: Create local Persistent Volume for VCS
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.k8s:
+    state: present
+    template: persistent-volume.yml.j2
+    validate:
+      fail_on_error: yes
+  vars:
+    application_name: "gogs"
+    namespace: "{{ vcs_namespace }}"
+    size: "50Gi"
+
+- name: Get mysql password from secret
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: mysql-database-auth
+    namespace: "{{ apps_namespace }}"
+  register: mysql_auth_secret
+
+- debug:
+    msg: "{{ mysql_auth_secret.resources[0].data['mysql-password'] | b64decode }}"
+  register: mysql_password
+
+- name: Install GOGs helm chart
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.helm:
+    name: "{{ vcs_application_prefix }}"
+    namespace: "{{ vcs_namespace }}"
+    chart_ref: keyporttech/gogs
+    values:
+      dbType: mysql
+      useInPodPostgres: false
+      externalDB:
+        dbUser: "apps"
+        dbPassword: "{{ mysql_password.msg }}"
+        dbHost: "mysql-database.apps.svc.cluster.local"
+        dbPort: 3306
+        dbDatabase: gogs
+      service:
+        http:
+          serviceType: LoadBalancer
+          externalHost: "{{ gogs_external_url }}"
+          externalPort: 3000
+        ssh:
+          serviceType: LoadBalancer
+        gogs:
+          disableHttpGit: true
+      persistence:
+        enabled: true
+        storageClass: "-"
+        existingGogsClaim: "{{ vcs_application_prefix }}-pvc-gogs"
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values: 
+                  - worker3.strawberryelk.com

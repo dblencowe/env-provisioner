@@ -1,0 +1,29 @@
+---
+- name: Add helm repo for bitnami
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.helm_repository:
+    name: bitnami
+    repo_url: https://charts.bitnami.com/bitnami
+
+- name: Install the helm chart for memcached
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.helm:
+    name: "memcached"
+    namespace: "{{ apps_namespace }}"
+    wait: true
+    chart_ref: bitnami/memcached
+    values:
+      nameOverride: "memcached"
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values: 
+                  - amd64

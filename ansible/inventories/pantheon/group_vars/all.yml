@@ -16,3 +16,6 @@ vcs_namespace: apps
 apps_namespace: apps
 metallb_cidr: 192.168.50.128/25
 mysql_static_lb_ip: 192.168.50.200
+gitea_ssh_static_lb_ip: 192.168.50.201
+gitea_http_static_lb_ip: 192.168.50.201
+admin_username: dblencowe

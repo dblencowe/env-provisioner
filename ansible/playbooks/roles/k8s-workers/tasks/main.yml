@@ -8,10 +8,10 @@
 
 - name: Join the Worker nodes to the cluster.
   become: yes
-  shell: sh /tmp/kubernetes_join_command && touch /tmp/cluster_joined.txt
+  shell: sh /tmp/kubernetes_join_command && touch /var/lib/provisioning/cluster_joined.txt
   register: joined_or_not
   args:
-    creates: /tmp/cluster_joined.txt
+    creates: /var/lib/provisioning/cluster_joined.txt
 
 - name: Split additional drive variable
   # debug: "{{ (extra_drives | default()).split(',') }}"

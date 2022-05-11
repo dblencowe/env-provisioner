@@ -1,3 +1,6 @@
 ---
 vcs_namespace: vcs
-application_prefix: gogs
+gogs_external_url: git.master.{{ tld }}
+admin_username: administrator
+gitea_ssh_static_lb_ip: ""
+gitea_http_static_lb_ip: ""

@@ -1,0 +1,125 @@
+---
+
+- name: Add helm repo
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.helm_repository:
+    name: gitea-charts
+    repo_url: https://dl.gitea.io/charts/
+
+- name: Create local Persistent Volume for gitea
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.k8s:
+    state: present
+    template: persistent-volume.yml.j2
+    validate:
+      fail_on_error: yes
+  vars:
+    application_name: "gitea"
+    namespace: "{{ vcs_namespace }}"
+    size: "50Gi"
+
+
+- name: Get mysql password from secret
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: mysql-database-auth
+    namespace: "{{ apps_namespace }}"
+  register: mysql_auth_secret
+
+- debug:
+    msg: "{{ mysql_auth_secret.resources[0].data['mysql-password'] | b64decode }}"
+  register: mysql_password
+
+- name: Get GitEA Admin Secret
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: gitea-admin-secret
+    namespace: "{{ vcs_namespace }}"
+  register: gitea_admin_secret
+
+- set_fact:
+    gitea_admin_password: "{{ lookup('password', '/dev/null chars=ascii_lowercase,digits length=16') }}"
+  when: gitea_admin_secret.resources | length <= 0
+
+- name: Create secret to store gitea admin settings
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.k8s:
+    state: present
+    definition: 
+      apiVersion: v1
+      kind: Secret
+      type: Opaque             
+      metadata:
+        name: gitea-admin-secret
+        namespace: "{{ vcs_namespace }}"    
+      data:
+        username: "{{ admin_username | b64encode }}"
+        password: "{{ gitea_admin_password | b64encode }}"
+  when: gitea_admin_secret.resources | length <= 0
+
+- name: Install GitEA helm chart
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.helm:
+    name: "gitea"
+    namespace: "{{ vcs_namespace }}"
+    chart_ref: gitea-charts/gitea
+    values:
+      gitea:
+        config:
+          database:
+            DB_TYPE: mysql
+            HOST: "mysql-database.apps.svc.cluster.local:3306"
+            NAME: gitea
+            USER: apps
+            PASSWD: "{{ mysql_password.msg }}"
+            SCHEMA: gitea
+          server:
+            DOMAIN: "git.master.{{ tld }}"
+            SSH_DOMAIN: "git.master.{{ tld }}"
+          cache:
+            HOST: memcached.apps.svc.cluster.local:11211
+        admin:
+          existingSecret: gitea-admin-secret
+      postgresql:
+        enabled: false
+      memcached:
+        enabled: false
+      service:
+        http:
+          type: LoadBalancer
+          loadBalancerIP: "{{ gitea_http_static_lb_ip }}"
+          annotations:
+            metallb.universe.tf/allow-shared-ip: gitea
+        ssh:
+          type: LoadBalancer
+          loadBalancerIP: "{{ gitea_ssh_static_lb_ip }}"
+          annotations:
+            metallb.universe.tf/allow-shared-ip: gitea
+      persistence:
+        enabled: true
+        storageClass: "-"
+        existingClaim: "gitea-pvc"
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values: 
+                  - worker3.strawberryelk.com

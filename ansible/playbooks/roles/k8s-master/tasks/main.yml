@@ -39,9 +39,9 @@
 
 
 - name: initialize the cluster
-  shell: kubeadm init --pod-network-cidr=10.244.0.0/16 && touch /tmp/cluster_initialized.txt
+  shell: kubeadm init --pod-network-cidr=10.244.0.0/16 && touch /var/lib/provisioning/cluster_initialized.txt
   args:
-    creates: /tmp/cluster_initialized.txt
+    creates: /var/lib/provisioning/cluster_initialized.txt
 
 - name: create .kube directory
   become: yes

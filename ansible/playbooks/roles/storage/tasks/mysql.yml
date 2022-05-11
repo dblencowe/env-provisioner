@@ -1,0 +1,208 @@
+---
+- name: Add helm repo for bitnami
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.helm_repository:
+    name: bitnami
+    repo_url: https://charts.bitnami.com/bitnami
+
+- name: Get mysql password from secret
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: mysql-database-auth
+    namespace: "{{ apps_namespace }}"
+  register: mysql_auth_secret
+
+- set_fact:
+    mysql_root_password: "{{ lookup('password', '/dev/null chars=ascii_lowercase,digits length=14') }}"
+    mysql_password: "{{ lookup('password', '/dev/null chars=ascii_lowercase,digits length=14') }}"
+  run_once: yes
+  when: mysql_auth_secret.resources | length <= 0
+
+- name: Create secret to store mysql auth settings
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.k8s:
+    state: present
+    definition: 
+      apiVersion: v1
+      kind: Secret
+      type: Opaque             
+      metadata:
+        name: mysql-database-auth
+        namespace: "{{ apps_namespace }}"     
+      data:
+        mysql-root-password: "{{ mysql_root_password | b64encode }}"
+        mysql-password: "{{ mysql_password | b64encode }}"
+  when: mysql_auth_secret.resources | length <= 0
+
+- name: Create local Persistent Volume for MySQL
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.k8s:
+    state: present
+    template: mysql-persistent-volume.yml.j2
+    validate:
+      fail_on_error: yes
+
+- name: Install the helm chart for MySQL
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.helm:
+    name: "mysql-database"
+    namespace: "{{ apps_namespace }}"
+    wait: true
+    chart_ref: bitnami/mysql
+    values:
+      nameOverride: "database"
+      diagnosticMode:
+        enabled: false
+      image:
+        tag: 8.0.29-debian-10-r2
+      architecture: standalone
+      auth:
+        database: system
+        username: apps
+        existingSecret: "mysql-database-auth"
+      primary:
+        configuration: |-
+          [mysqld]
+          default_authentication_plugin=mysql_native_password
+          skip-name-resolve
+          explicit_defaults_for_timestamp
+          basedir=/opt/bitnami/mysql
+          plugin_dir=/opt/bitnami/mysql/lib/plugin
+          port=3306
+          socket=/opt/bitnami/mysql/tmp/mysql.sock
+          datadir=/bitnami/mysql/data
+          tmpdir=/opt/bitnami/mysql/tmp
+          max_allowed_packet=16M
+          bind-address=0.0.0.0
+          pid-file=/opt/bitnami/mysql/tmp/mysqld.pid
+          log-error=/opt/bitnami/mysql/logs/mysqld.log
+          character-set-server=UTF8
+          collation-server=utf8_general_ci
+          slow_query_log=0
+          slow_query_log_file=/opt/bitnami/mysql/logs/mysqld.log
+          long_query_time=10.0
+
+          [client]
+          port=3306
+          socket=/opt/bitnami/mysql/tmp/mysql.sock
+          default-character-set=UTF8
+          plugin_dir=/opt/bitnami/mysql/lib/plugin
+
+          [manager]
+          port=3306
+          socket=/opt/bitnami/mysql/tmp/mysql.sock
+          pid-file=/opt/bitnami/mysql/tmp/mysqld.pid
+        affinity: {}
+        resources:
+          ## Example:
+          ## limits:
+          ##    cpu: 250m
+          ##    memory: 256Mi
+          limits: {}
+          ## Examples:
+          ## requests:
+          ##    cpu: 250m
+          ##    memory: 256Mi
+          requests: {}
+        livenessProbe:
+          enabled: true
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 1
+          failureThreshold: 3
+          successThreshold: 1
+        readinessProbe:
+          enabled: true
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 1
+          failureThreshold: 3
+          successThreshold: 1
+        startupProbe:
+          enabled: true
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 1
+          failureThreshold: 10
+          successThreshold: 1
+        persistence:
+          enabled: true
+          storageClass: local-storage
+          existingClaim: storage-mysql-pvc
+        service:
+          type: LoadBalancer
+          port: 3306
+          loadBalancerIP: "{{ mysql_static_lb_ip }}"
+        pdb:
+          enabled: false
+          minAvailable: 1
+      secondary:
+        replicaCount: 0
+      metrics:
+        enabled: false
+        ## @param metrics.extraArgs.primary [array] Extra args to be passed to mysqld_exporter on Primary pods
+        ## @param metrics.extraArgs.secondary [array] Extra args to be passed to mysqld_exporter on Secondary pods
+        ## ref: https://github.com/prometheus/mysqld_exporter/
+        ## E.g.
+        ## - --collect.auto_increment.columns
+        ## - --collect.binlog_size
+        ## - --collect.engine_innodb_status
+        ## - --collect.engine_tokudb_status
+        ## - --collect.global_status
+        ## - --collect.global_variables
+        ## - --collect.info_schema.clientstats
+        ## - --collect.info_schema.innodb_metrics
+        ## - --collect.info_schema.innodb_tablespaces
+        ## - --collect.info_schema.innodb_cmp
+        ## - --collect.info_schema.innodb_cmpmem
+        ## - --collect.info_schema.processlist
+        ## - --collect.info_schema.processlist.min_time
+        ## - --collect.info_schema.query_response_time
+        ## - --collect.info_schema.tables
+        ## - --collect.info_schema.tables.databases
+        ## - --collect.info_schema.tablestats
+        ## - --collect.info_schema.userstats
+        ## - --collect.perf_schema.eventsstatements
+        ## - --collect.perf_schema.eventsstatements.digest_text_limit
+        ## - --collect.perf_schema.eventsstatements.limit
+        ## - --collect.perf_schema.eventsstatements.timelimit
+        ## - --collect.perf_schema.eventswaits
+        ## - --collect.perf_schema.file_events
+        ## - --collect.perf_schema.file_instances
+        ## - --collect.perf_schema.indexiowaits
+        ## - --collect.perf_schema.tableiowaits
+        ## - --collect.perf_schema.tablelocks
+        ## - --collect.perf_schema.replication_group_member_stats
+        ## - --collect.slave_status
+        ## - --collect.slave_hosts
+        ## - --collect.heartbeat
+        ## - --collect.heartbeat.database
+        ## - --collect.heartbeat.table
+        ##
+        livenessProbe:
+          enabled: true
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          enabled: true
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 3
+        serviceMonitor:
+          enabled: false

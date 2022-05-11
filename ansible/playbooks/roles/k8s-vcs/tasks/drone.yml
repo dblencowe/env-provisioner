@@ -1,0 +1,56 @@
+---
+- name: Add helm repo
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.helm_repository:
+    name: drone
+    repo_url: https://charts.drone.io
+
+- set_fact:
+    drone_rpc_secret: "{{ lookup('password', '/dev/null chars=ascii_lowercase,digits length=64') }}"
+  run_once: yes
+
+- name: Create local Persistent Volume for drone
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.k8s:
+    state: present
+    template: persistent-volume.yml.j2
+    validate:
+      fail_on_error: yes
+  vars:
+    application_name: "drone"
+    namespace: "{{ vcs_namespace }}"
+    size: "10Gi"
+
+- name: Install Drone helm chart
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.helm:
+    name: "drone"
+    namespace: "{{ vcs_namespace }}"
+    chart_ref: drone/drone
+    values:
+      env:
+        DRONE_SERVER_HOST: drone.master.{{ tld }}
+        DRONE_SERVER_PROTO: http
+        DRONE_RPC_SECRET: "{{ drone_rpc_secret }}"
+        DRONE_GOGS_SERVER: "{{ gogs_external_url }}"
+        DRONE_GIT_ALWAYS_AUTH: true
+      service:
+        type: LoadBalancer
+      persistentVolume:
+        enabled: true
+        storageClass: "-"
+        existingClaim: "drone-pvc"
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values: 
+                  - worker3.strawberryelk.com

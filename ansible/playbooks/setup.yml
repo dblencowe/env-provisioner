@@ -6,10 +6,11 @@
     # - name: Print all available facts
     #   ansible.builtin.debug:
     #     var: ansible_facts
+
     - name: Setup Python & acl
       become: yes
       apt:
-        name: [python3-apt, acl, python3-pip, python3-pymysql, nfs-common]
+        name: [unattended-upgrades, python3-apt, acl, python3-pip, python3-pymysql, nfs-common]
         state: present
         update_cache: true
 
@@ -42,6 +43,12 @@
   roles:
     - k8s-workers
 
+- name: Setup metallb
+  hosts: master
+  become: yes
+  roles:
+    - k8s-metallb
+
 - name: Setup Cluster Storage
   hosts: master
   become: yes
@@ -49,12 +56,6 @@
     storage_qnap_password: ""
   roles:
     - storage
-
-- name: Setup metallb
-  hosts: master
-  become: yes
-  roles:
-    - k8s-metallb
 
 - name: Configure network VCS
   hosts: master
