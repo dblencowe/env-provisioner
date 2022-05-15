@@ -89,8 +89,10 @@
             PASSWD: "{{ mysql_password.msg }}"
             SCHEMA: gitea
           server:
-            DOMAIN: "http://192.168.50.201:3000"
-            SSH_DOMAIN: "192.168.50.201"
+            PROTOCOL: http
+            DOMAIN: "gitea-http"
+            SSH_DOMAIN: "gitea-ssh"
+            ROOT_URL: "%(PROTOCOL)s://git.strawberryelk.com:%(HTTP_PORT)s/"
           cache:
             HOST: memcached.apps.svc.cluster.local:11211
           webhook:
