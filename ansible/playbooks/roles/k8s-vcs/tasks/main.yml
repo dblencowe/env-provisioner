@@ -4,3 +4,6 @@
 
 - name: Setup Drone
   include_tasks: "drone.yml"
+
+- name: Setup Drone kube runner
+  include_tasks: "drone-runner.yml"

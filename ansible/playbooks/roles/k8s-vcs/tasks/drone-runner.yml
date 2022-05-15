@@ -1,0 +1,65 @@
+---
+- name: Create GitEA runner role
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.k8s:
+    state: present
+    definition: 
+      kind: Role
+      apiVersion: rbac.authorization.k8s.io/v1
+      metadata:
+        namespace: "{{ vcs_namespace }}"
+        name: drone
+      rules:
+        - verbs:
+            - '*'
+          apiGroups:
+            - ''
+            - 'batch'
+            - 'extensions'
+            - 'apps'
+          resources:
+            - '*'
+
+- name: Create GitEA runner role binding
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.k8s:
+    state: present
+    definition: 
+      kind: RoleBinding
+      apiVersion: rbac.authorization.k8s.io/v1
+      metadata:
+        name: drone
+        namespace: "{{ vcs_namespace }}"
+      subjects:
+        - kind: ServiceAccount
+          name: drone-runner-kube
+          namespace: "{{ vcs_namespace }}"
+      roleRef:
+        kind: Role
+        name: drone
+        apiGroup: rbac.authorization.k8s.io
+
+- name: Install Drone helm chart
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.helm:
+    name: "drone-runner-kube"
+    namespace: "{{ vcs_namespace }}"
+    chart_ref: drone/drone-runner-kube
+    values:
+      rbac:
+        buildNamespaces:
+          - "{{ vcs_namespace }}"
+      env:
+        DRONE_SERVER_HOST: "drone.apps.svc.cluster.local"
+        DRONE_RPC_HOST: "drone.apps.svc.cluster.local"
+        DRONE_RPC_SECRET: "{{ drone_rpc_secret }}"
+        DRONE_NAMESPACE_DEFAULT: "{{ vcs_namespace }}"
+        DRONE_SERVICE_ACCOUNT_DEFAULT: drone-runner-kube
+      nodeSelector:
+        kubernetes.io/arch: amd64

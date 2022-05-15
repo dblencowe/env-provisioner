@@ -89,10 +89,12 @@
             PASSWD: "{{ mysql_password.msg }}"
             SCHEMA: gitea
           server:
-            DOMAIN: "git.{{ tld }}"
-            SSH_DOMAIN: "git.{{ tld }}"
+            DOMAIN: "http://192.168.50.201:3000"
+            SSH_DOMAIN: "192.168.50.201"
           cache:
             HOST: memcached.apps.svc.cluster.local:11211
+          webhook:
+            ALLOWED_HOST_LIST: '*'
         admin:
           existingSecret: gitea-admin-secret
       postgresql:

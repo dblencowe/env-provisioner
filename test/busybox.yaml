@@ -4,6 +4,9 @@ metadata:
   name: busybox
   namespace: apps
 spec:
+  restartPolicy: Always
+  nodeSelector:
+    kubernetes.io/hostname: worker4.strawberryelk.com
   containers:
   - name: busybox
     image: busybox:1.28
@@ -11,4 +14,3 @@ spec:
       - sleep
       - "3600"
     imagePullPolicy: IfNotPresent
-  restartPolicy: Always

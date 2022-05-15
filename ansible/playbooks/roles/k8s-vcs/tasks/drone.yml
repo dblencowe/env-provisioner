@@ -11,6 +11,21 @@
     drone_rpc_secret: "{{ lookup('password', '/dev/null chars=ascii_lowercase,digits length=64') }}"
   run_once: yes
 
+- name: Get mysql password from secret
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: mysql-database-auth
+    namespace: "{{ apps_namespace }}"
+  register: mysql_auth_secret
+
+- debug:
+    msg: "{{ mysql_auth_secret.resources[0].data['mysql-password'] | b64decode }}"
+  register: mysql_password
+
 - name: Create local Persistent Volume for drone
   become_user: kube
   become_method: sudo
@@ -24,6 +39,25 @@
     namespace: "{{ vcs_namespace }}"
     size: "10Gi"
 
+- name: Get gitea client app / secret from Secret
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: gitea-drone-app
+    namespace: "{{ apps_namespace }}"
+  register: gitea_drone_secret
+
+- debug:
+    msg: "{{ gitea_drone_secret.resources[0].data['client-id'] | b64decode }}"
+  register: gitea_client_id
+
+- debug:
+    msg: "{{ gitea_drone_secret.resources[0].data['client-secret'] | b64decode }}"
+  register: gitea_client_secret
+
 - name: Install Drone helm chart
   become: yes
   become_user: kube
@@ -36,14 +70,22 @@
       env:
         DRONE_SERVER_HOST: drone.master.{{ tld }}
         DRONE_SERVER_PROTO: http
+        DRONE_SERVER_PROXY_HOST: drone
         DRONE_RPC_SECRET: "{{ drone_rpc_secret }}"
         DRONE_GIT_ALWAYS_AUTH: true
+        DRONE_GITEA_CLIENT_ID: "{{ gitea_client_id.msg }}"
+        DRONE_GITEA_CLIENT_SECRET: "{{ gitea_client_secret.msg }}"
+        DRONE_GITEA_SERVER: "http://192.168.50.201:3000"
+        DRONE_DATABASE_DRIVER: mysql
+        DRONE_DATABASE_DATASOURCE: "apps:{{ mysql_password.msg }}@tcp(mysql-database.apps.svc.cluster.local:3306)/drone?parseTime=true"
       service:
         type: LoadBalancer
       persistentVolume:
         enabled: true
         storageClass: "-"
         existingClaim: "drone-pvc"
+      nodeSelector:
+        kubernetes.io/hostname: worker3.strawberryelk.com
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
