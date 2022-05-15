@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.1.1](https://git.strawberryelk.com/dblencowe/pantheon/compare/v1.1.0...v1.1.1) (2022-05-15)
+
+
+### Features
+
+* implement ci/cd ([0c8e101](https://git.strawberryelk.com/dblencowe/pantheon/commit/0c8e1016dcb42ccd16b0c6183a2829b376e81f57))
+
+
+### Bug Fixes
+
+* change git.master.tld to git.tld for brevity ([03951ab](https://git.strawberryelk.com/dblencowe/pantheon/commit/03951ab780a344974f70aee4b4960b29eadba376))
+* invalid gogs parameter on drone ([f71d394](https://git.strawberryelk.com/dblencowe/pantheon/commit/f71d394f057b25a082b616944f51dee009810c4f))
+
 ## [1.1.0](https://ssh.git.master.strawberryelk.com/dblencowe/pantheon-playbook/compare/v1.0.1...v1.1.0) (2022-05-11)
 
 
