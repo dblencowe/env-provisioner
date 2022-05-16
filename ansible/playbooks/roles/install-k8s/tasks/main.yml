@@ -64,11 +64,18 @@
     name: containerd
     state: present
 
-- name: Configure containerd
-  shell: |
-          mkdir -p /etc/containerd
-          containerd config default | sudo tee /etc/containerd/config.toml
-          systemctl restart containerd
+- name: Create directory to store containerd config
+  file:
+    state: directory
+    path: /etc/containerd
+
+- name: Create containerd configuration
+  template:
+    src: containerd-config.toml.j2
+    dest: /etc/containerd/config.toml
+
+- name: Restart containerd
+  shell: systemctl restart containerd
 
 - name: disable swap
   shell: |

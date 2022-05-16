@@ -52,6 +52,8 @@
     namespace: "{{ vcs_namespace }}"
     chart_ref: drone/drone-runner-kube
     values:
+      securityContext:
+        allowPrivilegeEscalation: true
       rbac:
         buildNamespaces:
           - "{{ vcs_namespace }}"

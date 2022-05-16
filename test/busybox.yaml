@@ -7,10 +7,15 @@ spec:
   restartPolicy: Always
   nodeSelector:
     kubernetes.io/hostname: worker4.strawberryelk.com
+  imagePullSecrets:
+    - name: nemo-registry-login
   containers:
-  - name: busybox
-    image: busybox:1.28
-    command:
-      - sleep
-      - "3600"
-    imagePullPolicy: IfNotPresent
+    - name: busybox
+      image: busybox:1.28
+      imagePullPolicy: IfNotPresent
+      command:
+        - sleep
+        - "3600"
+    - name: alice
+      image: nemo:5001/dblencowe/alice:latest
+      imagePullPolicy: IfNotPresent

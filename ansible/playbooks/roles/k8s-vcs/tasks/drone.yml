@@ -78,6 +78,7 @@
         DRONE_GITEA_SERVER: "http://192.168.50.201:3000"
         DRONE_DATABASE_DRIVER: mysql
         DRONE_DATABASE_DATASOURCE: "apps:{{ mysql_password.msg }}@tcp(mysql-database.apps.svc.cluster.local:3306)/drone?parseTime=true"
+        DRONE_ADMIN: "{{ admin_username }}"
       service:
         type: LoadBalancer
       persistentVolume:
