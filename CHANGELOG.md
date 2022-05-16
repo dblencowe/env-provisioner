@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.2.0](https://git.strawberryelk.com/dblencowe/pantheon/compare/v1.1.1...v1.2.0) (2022-05-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* adds support for an image registry hosted on nemo
+
+### Features
+
+* adds support for an image registry hosted on nemo ([08a3d56](https://git.strawberryelk.com/dblencowe/pantheon/commit/08a3d568c680f8bfbea8e3141583e905efe95b1d))
+
+
+### Bug Fixes
+
+* use cluster aware domain names ([8093d33](https://git.strawberryelk.com/dblencowe/pantheon/commit/8093d33ec4d75d2e91d6a93128b8c7b5116db2b1))
+
 ### [1.1.1](https://git.strawberryelk.com/dblencowe/pantheon/compare/v1.1.0...v1.1.1) (2022-05-15)
 
 
