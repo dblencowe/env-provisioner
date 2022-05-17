@@ -1,0 +1,4 @@
+---
+- name: Setup RabbitMQ
+  include_tasks: "rabbitmq.yml"
+  when: core_services.rabbitmq.enabled

@@ -1,0 +1,6 @@
+---
+core_apps_namespace: core
+core_services:
+  rabbitmq:
+    username: admin
+    enabled: true

@@ -19,3 +19,8 @@ mysql_static_lb_ip: 192.168.50.200
 gitea_ssh_static_lb_ip: 192.168.50.201
 gitea_http_static_lb_ip: 192.168.50.201
 admin_username: dblencowe
+core_apps_namespace: apps
+core_services:
+  rabbitmq:
+    username: admin
+    enabled: true

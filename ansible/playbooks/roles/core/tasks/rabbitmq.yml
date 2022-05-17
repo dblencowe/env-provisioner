@@ -1,0 +1,85 @@
+---
+- name: Add helm repo for bitnami
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.helm_repository:
+    name: bitnami
+    repo_url: https://charts.bitnami.com/bitnami
+
+- name: Get RabbitMQ password from secret
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: rabbitmq-admin-auth
+    namespace: "{{ core_apps_namespace }}"
+  register: rabbitmq_auth_secret
+
+- set_fact:
+    rabbitmq_password: "{{ lookup('password', '/dev/null chars=ascii_lowercase,digits length=14') }}"
+    rabbitmq_erlang_cookie: "{{ lookup('password', '/dev/null chars=ascii_lowercase,digits length=32') }}"
+  when: rabbitmq_auth_secret.resources | length <= 0
+
+- name: Create secret to store RabbitMQ auth settings
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.k8s:
+    state: present
+    definition: 
+      apiVersion: v1
+      kind: Secret
+      type: Opaque             
+      metadata:
+        name: rabbitmq-admin-auth
+        namespace: "{{ core_apps_namespace }}"    
+      data:
+        rabbitmq-password: "{{ rabbitmq_password | b64encode }}"
+        rabbitmq-erlang-cookie: "{{ rabbitmq_erlang_cookie | b64encode }}"
+  when: rabbitmq_auth_secret.resources | length <= 0
+
+- name: Create local Persistent Volume for RabbitMQ
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.k8s:
+    state: present
+    template: persistent-volume.yml.j2
+    validate:
+      fail_on_error: yes
+  vars:
+    application_name: "rabbitmq"
+    namespace: "{{ core_apps_namespace }}"
+    size: "10Gi"
+
+- name: Install RabbitMQ helm chart
+  become: yes
+  become_user: kube
+  become_method: sudo
+  kubernetes.core.helm:
+    name: "rabbitmq"
+    namespace: "{{ core_apps_namespace }}"
+    chart_ref: bitnami/rabbitmq
+    values:
+      auth:
+        username: "{{ core_services.rabbitmq.username }}"
+        existingPasswordSecret: "rabbitmq-admin-auth"
+        existingErlangSecret: "rabbitmq-admin-auth"
+      persistence:
+        enabled: true
+        storageClass: "-"
+        existingClaim: "rabbitmq-pvc"
+      nodeSelector:
+        kubernetes.io/hostname: worker3.strawberryelk.com
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values: 
+                  - worker3.strawberryelk.com
